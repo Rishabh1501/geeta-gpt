@@ -86,7 +86,7 @@ def format_chat_history(messages):
 # Memory: Stores the query embedding and the search results temporarily.
 # The joined 'context' string can consume memory depending on k and doc size.
 # Size of context is dictated by k and the content of stored chunks.
-def search_qdrant(query: str, client: QdrantClient, embed_model, k: int = 5, collection_name: str = "bhagavad-gita-mixedbread"):
+def search_qdrant(query: str, client: QdrantClient, embed_model, k: int = 5, collection_name: str = "bhagavad-gita-bge-small"):
     """Performs vector search in Qdrant and returns context strings."""
     try:
         # embed_query creates an embedding vector, temporary memory usage.

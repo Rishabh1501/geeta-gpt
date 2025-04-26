@@ -52,8 +52,8 @@ def initialize():
     try:
         # Initialize embeddings. The size of the model affects memory.
         # embed_model = FastEmbedEmbeddings(model_name="BAAI/bge-large-en-v1.5", cache_dir="./cache")
-        embed_model = FastEmbedEmbeddings(model_name="mixedbread-ai/mxbai-embed-large-v1", cache_dir="./cache")
-
+        # embed_model = FastEmbedEmbeddings(model_name="mixedbread-ai/mxbai-embed-large-v1", cache_dir="./cache")
+        embed_model = FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5", cache_dir="./cache")
         # Initialize LangSmith Client (lightweight)
         LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
         langsmith_client = None # Start with None
