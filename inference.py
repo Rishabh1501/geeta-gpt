@@ -28,7 +28,8 @@ load_dotenv()
 # or offloading, which are outside the scope of simple code edits keeping functionality intact.
 try:
     # Initialize embeddings. The size of the model affects memory.
-    embed_model = FastEmbedEmbeddings(model_name="BAAI/bge-large-en-v1.5", cache_dir="./cache")
+    # embed_model = FastEmbedEmbeddings(model_name="BAAI/bge-large-en-v1.5", cache_dir="./cache")
+    embed_model = FastEmbedEmbeddings(model_name="mixedbread-ai/mxbai-embed-large-v1", cache_dir="./cache")
 
     # Initialize LangSmith Client (lightweight)
     LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
@@ -121,7 +122,7 @@ def format_chat_history(messages):
 # Memory: Stores the query embedding and the search results temporarily.
 # The joined 'context' string can consume memory depending on k and doc size.
 # Size of context is dictated by k and the content of stored chunks.
-def search_qdrant(query: str, client: QdrantClient, embed_model, k: int = 5, collection_name: str = "bhagavad-gita"):
+def search_qdrant(query: str, client: QdrantClient, embed_model, k: int = 5, collection_name: str = "bhagavad-gita-mixedbread"):
     """Performs vector search in Qdrant and returns context strings."""
     try:
         # embed_query creates an embedding vector, temporary memory usage.
