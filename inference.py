@@ -26,47 +26,11 @@ load_dotenv()
 # Models are the primary memory consumers. They are loaded once at script start.
 # Significant memory reduction often requires using smaller models, quantization,
 # or offloading, which are outside the scope of simple code edits keeping functionality intact.
-try:
-    # Initialize embeddings. The size of the model affects memory.
-    # embed_model = FastEmbedEmbeddings(model_name="BAAI/bge-large-en-v1.5", cache_dir="./cache")
-    embed_model = FastEmbedEmbeddings(model_name="mixedbread-ai/mxbai-embed-large-v1", cache_dir="./cache")
-
-    # Initialize LangSmith Client (lightweight)
-    LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
-    langsmith_client = None # Start with None
-    if LANGSMITH_API_KEY:
-        langsmith_client = LangSmithClient(api_key=LANGSMITH_API_KEY)
-    else:
-        print("[WARN] LANGSMITH_API_KEY not set. LangSmith tracing disabled.")
-
-    # Initialize LLM (another primary memory consumer). Model size matters.
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        raise ValueError("GROQ_API_KEY environment variable not set.")
-    # Using a common Groq model. Changing model_name would impact memory and functionality.
-    llm = ChatGroq(model_name="deepseek-r1-distill-llama-70b", api_key=groq_api_key)
-
-    # Initialize Qdrant Client (lightweight connection manager)
-    qdrant_url = os.getenv("QDRANT_URL")
-    qdrant_api_key = os.getenv("QDRANT_API_KEY")
-    if not qdrant_url or not qdrant_api_key:
-        raise ValueError("QDRANT_URL or QDRANT_API_KEY environment variable not set.")
-    qdrant_client = QdrantClient(
-        url=qdrant_url,
-        api_key=qdrant_api_key,
-        prefer_grpc=True
-    )
-except Exception as e:
-    print(f"Initialization failed: {e}")
-    # In a service, you might log and return an error rather than exiting.
-    # For a standalone script, exit(1) is appropriate.
-    exit(1)
-
 # --- Helper Functions ---
 
 # Fetch prompt object from LangSmith
 # Memory: Stores the prompt template object, which is typically small.
-def fetch_langsmith_prompt(prompt_name: str) -> ChatPromptTemplate | None:
+def fetch_langsmith_prompt(langsmith_client, prompt_name: str) -> ChatPromptTemplate | None:
     """Fetches a prompt object (likely ChatPromptTemplate) from LangSmith."""
     if not langsmith_client:
         print("[LangSmith] Client not available. Cannot fetch prompt.")
@@ -193,7 +157,7 @@ def build_rag_chain(base_prompt: ChatPromptTemplate, llm) -> RunnableSequence:
     return base_prompt | llm
 
 # --- Main Pipeline ---
-def chat_pipeline(messages: list[dict]):
+def chat_pipeline(messages: list[dict], embed_model, langsmith_client, llm, qdrant_client):
     """
     Main RAG pipeline processing user input and chat history.
     Memory: Manages the flow of data (history, context, LLM output).
@@ -228,7 +192,7 @@ def chat_pipeline(messages: list[dict]):
     # Prompt template object memory is small.
     print("Fetching prompt template...")
     prompt_name = "geeta-gpt" # Make this configurable if needed
-    rag_prompt_template = fetch_langsmith_prompt(prompt_name)
+    rag_prompt_template = fetch_langsmith_prompt(langsmith_client, prompt_name)
 
     # Use a fallback default prompt if fetch fails
     # Default prompt object memory is small.

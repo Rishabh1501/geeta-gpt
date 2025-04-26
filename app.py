@@ -6,6 +6,11 @@ import os
 from inference import chat_pipeline # Assuming your inference logic is here
 import uuid
 import gc # Import garbage collector
+from qdrant_client import QdrantClient
+# Use LangChain's FastEmbed wrapper for better integration
+from langchain_community.embeddings import FastEmbedEmbeddings
+from langsmith import Client as LangSmithClient
+from langchain_groq import ChatGroq
 
 # --- Configuration for Memory Optimization ---
 # Option 1: Limit history length passed to the backend pipeline
@@ -41,6 +46,46 @@ if "chat_histories" not in st.session_state:
     st.session_state.current_chat_id = None
     print("Initialized chat_histories session state.")
 
+
+@st.cache_resource
+def initialize():
+    try:
+        # Initialize embeddings. The size of the model affects memory.
+        # embed_model = FastEmbedEmbeddings(model_name="BAAI/bge-large-en-v1.5", cache_dir="./cache")
+        embed_model = FastEmbedEmbeddings(model_name="mixedbread-ai/mxbai-embed-large-v1", cache_dir="./cache")
+
+        # Initialize LangSmith Client (lightweight)
+        LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
+        langsmith_client = None # Start with None
+        if LANGSMITH_API_KEY:
+            langsmith_client = LangSmithClient(api_key=LANGSMITH_API_KEY)
+        else:
+            print("[WARN] LANGSMITH_API_KEY not set. LangSmith tracing disabled.")
+
+        # Initialize LLM (another primary memory consumer). Model size matters.
+        groq_api_key = os.getenv("GROQ_API_KEY")
+        if not groq_api_key:
+            raise ValueError("GROQ_API_KEY environment variable not set.")
+        # Using a common Groq model. Changing model_name would impact memory and functionality.
+        llm = ChatGroq(model_name="deepseek-r1-distill-llama-70b", api_key=groq_api_key)
+
+        # Initialize Qdrant Client (lightweight connection manager)
+        qdrant_url = os.getenv("QDRANT_URL")
+        qdrant_api_key = os.getenv("QDRANT_API_KEY")
+        if not qdrant_url or not qdrant_api_key:
+            raise ValueError("QDRANT_URL or QDRANT_API_KEY environment variable not set.")
+        qdrant_client = QdrantClient(
+            url=qdrant_url,
+            api_key=qdrant_api_key,
+            prefer_grpc=True
+        )
+        return embed_model, langsmith_client, llm, qdrant_client
+    except Exception as e:
+        print(f"Initialization failed: {e}")
+        # In a service, you might log and return an error rather than exiting.
+        # For a standalone script, exit(1) is appropriate.
+        exit(1)
+
 def generate_chat_id():
     return str(uuid.uuid4())
 
@@ -56,6 +101,10 @@ def create_new_chat(switch_to_new=True):
         # Use st.rerun to update the UI immediately
         st.rerun()
     # No need for rerun if not switching, the chat appears in the list on next interaction
+
+#load embeddings, llm, and qdrant client
+embed_model, langsmith_client, llm, qdrant_client = initialize()
+
 
 # Ensure at least one chat exists on first load or if state is broken
 if not st.session_state.chat_histories:
@@ -297,7 +346,7 @@ if current_messages and current_messages[-1]["role"] == "user":
 
                     # Invoke the chat pipeline function from inference.py
                     # The pipeline returns the formatted response string ("thinking<split>answer")
-                    response = chat_pipeline(history_for_pipeline)
+                    response = chat_pipeline(history_for_pipeline, embed_model, langsmith_client, llm, qdrant_client)
                     full_response_content = response # Store the full response string
 
                     # --- Parse and Display Assistant Response ---
