@@ -6,3 +6,4 @@ llama-index-llms-groq
 langsmith
 langchain_core
 langchain_groq
+langchain_community
